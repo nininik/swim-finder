@@ -23,10 +23,17 @@
   const NAVER_CLIENT_ID = "tg6az681o1";
   const USE_MAP = true;
 </script>
+<!-- developers.naver.com 발급 키: clientId 파라미터 사용 -->
 <script
-  src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=tg6az681o1&submodules=geocoder"
-  onerror="document.getElementById('map').innerHTML='<div style=\'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;font-family:Noto Sans KR,sans-serif;color:#4B5775;text-align:center;padding:2rem\'><div style=\'font-size:36px\'>🗺️</div><div style=\'font-size:14px;font-weight:500\'>네이버 지도 API 로드 실패<br>콘솔에서 오류를 확인해주세요.</div></div>'"
+  src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=tg6az681o1&submodules=geocoder"
+  onerror="naverScriptFailed()"
 ></script>
+<script>
+function naverScriptFailed() {
+  document.getElementById('map').innerHTML =
+    '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;font-family:Noto Sans KR,sans-serif;color:#4B5775;text-align:center;padding:2rem"><div style="font-size:36px">🗺️</div><div style="font-size:14px;font-weight:500">네이버 지도 API 로드 실패<br>콘솔에서 오류를 확인해주세요.</div></div>';
+}
+</script>
 
 <style>
 :root {
