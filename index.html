@@ -522,8 +522,12 @@ function selectCard(id) {
    검색 쿼리 생성
 ═══════════════════════════════════════ */
 function makeQuery(p) {
-  /* "수영장" 제거 후 시설명 + 시도 + 시군구 조합 */
-  var clean = p.name.replace(/수영장/g, '').replace(/\s+/g, ' ').trim();
+  var clean = p.name;
+  clean = clean.replace(/\([^)]*수영장[^)]*\)/g, ''); // (수영장), (수영장명) 형태 괄호째 제거
+  clean = clean.replace(/수영장/g, '');                // 나머지 "수영장" 제거
+  clean = clean.replace(/\([^)]*\)/g, '');             // 빈 괄호 또는 부가 설명 괄호 제거
+  clean = clean.replace(/[\/\\]/g, ' ');               // 슬래시 → 공백
+  clean = clean.replace(/\s+/g, ' ').trim();
   return clean + ' ' + p.sido + ' ' + p.sigungu;
 }
 
