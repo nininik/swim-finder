@@ -321,33 +321,10 @@ function processNextGeo() {
 /* ================================================
    지도 위 마커 배치
 ================================================ */
+/* putMarker: 큐에서 호출 → createMarker 위임 */
 function putMarker(p, lat, lng) {
   if (!map) return;
-  if (mMap[p.id]) return; // 이미 있으면 스킵
-
-  var pos = new naver.maps.LatLng(lat, lng);
-  var isIndoor = p.indoor === '실내';
-
-  var marker = new naver.maps.Marker({
-    position: pos,
-    map: map,
-    title: p.name,
-    icon: {
-      content: '<div class="map-pin ' + (isIndoor ? 'pin-i' : 'pin-o') + '">' + p.name + '</div>',
-      anchor: new naver.maps.Point(0, 0)
-    }
-  });
-
-  mMap[p.id] = { marker: marker, lat: lat, lng: lng };
-  markers.push(marker);
-
-  naver.maps.Event.addListener(marker, 'click', function() {
-    selId = p.id;
-    renderCards();
-    openIW(p, marker);
-    var el = document.querySelector('[data-id="' + p.id + '"]');
-    if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
-  });
+  createMarker(p, lat, lng);
 }
 
 /* 카드 "지도 보기" 버튼을 초록색으로 변경 (좌표 확보됨) */
@@ -522,63 +499,105 @@ function selCard(id) {
 /* ================================================
    지도 보기 버튼
 ================================================ */
+/* ================================================
+   지도 보기 버튼 — 클릭 시 오른쪽 지도에서 위치 찾기
+   우선순위: ① 이미 마커 있음 → 즉시 이동
+            ② localStorage 캐시 있음 → 마커 생성 후 이동
+            ③ 없으면 geocode API 호출 → 마커 생성 후 이동
+================================================ */
 function showOnMap(id) {
-  if (!map) { alert('지도 초기화 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  if (!map) { alert('지도가 아직 준비 중입니다. 잠시 후 다시 눌러주세요.'); return; }
+
+  /* 시설 찾기 */
   var p = null;
   for (var i = 0; i < POOLS.length; i++) { if (POOLS[i].id === id) { p = POOLS[i]; break; } }
   if (!p) return;
 
-  // 1) 마커가 이미 있으면 즉시 이동
+  /* ① 이미 마커 있음 */
   if (mMap[id]) {
-    var m = mMap[id];
-    map.setCenter(new naver.maps.LatLng(m.lat, m.lng));
-    map.setZoom(16);
-    openIW(p, m.marker);
+    goToMarker(p, mMap[id].lat, mMap[id].lng, mMap[id].marker);
     return;
   }
 
-  // 2) 캐시에 좌표 있으면 즉시 마커 생성
+  /* ② 캐시된 좌표 있음 */
   var cached = getCached(p);
   if (cached) {
-    putMarker(p, cached.lat, cached.lng);
-    map.setCenter(new naver.maps.LatLng(cached.lat, cached.lng));
-    map.setZoom(16);
-    openIW(p, mMap[id].marker);
+    var marker = createMarker(p, cached.lat, cached.lng);
+    goToMarker(p, cached.lat, cached.lng, marker);
     updateCardBtn(id, true);
     return;
   }
 
-  // 3) API 호출
-  var btn = document.querySelector('[data-map-btn="' + id + '"]');
-  if (btn) btn.textContent = '⌛ 검색 중...';
+  /* ③ geocode API 호출 */
+  setBtn(id, '⌛ 검색 중...');
+  var q1 = mkQ(p);
+  var q2 = p.name.replace(/수영장/g,'').replace(/\([^)]*\)/g,'').replace(/\s+/g,' ').trim() + ' ' + p.sido;
 
-  geocodeAndGo(p, mkQ(p), function(ok) {
-    if (!ok) {
-      // fallback
-      var q2 = p.name.replace(/수영장/g,'').replace(/\([^)]*\)/g,'').replace(/\s+/g,' ').trim() + ' ' + p.sido;
-      geocodeAndGo(p, q2, function(ok2) {
-        if (!ok2 && btn) btn.textContent = '❌ 위치 없음';
+  naver.maps.Service.geocode({ query: q1 }, function(status, res) {
+    var addrs = res && res.v2 && res.v2.addresses;
+    if (status === naver.maps.Service.Status.OK && addrs && addrs.length) {
+      applyGeoResult(p, addrs[0]);
+    } else {
+      /* fallback 쿼리 */
+      naver.maps.Service.geocode({ query: q2 }, function(s2, r2) {
+        var a2 = r2 && r2.v2 && r2.v2.addresses;
+        if (s2 === naver.maps.Service.Status.OK && a2 && a2.length) {
+          applyGeoResult(p, a2[0]);
+        } else {
+          setBtn(id, '❌ 위치 없음');
+        }
       });
     }
   });
 }
 
-function geocodeAndGo(p, query, cb) {
-  naver.maps.Service.geocode({ query: query }, function(status, response) {
-    if (status !== naver.maps.Service.Status.OK ||
-        !response.v2 || !response.v2.addresses || !response.v2.addresses.length) {
-      cb(false); return;
+/* geocode 결과 적용 → 마커 생성 + 지도 이동 */
+function applyGeoResult(p, addrObj) {
+  var lat = parseFloat(addrObj.y);
+  var lng = parseFloat(addrObj.x);
+  setCache(p, lat, lng);
+  var marker = createMarker(p, lat, lng);
+  goToMarker(p, lat, lng, marker);
+  updateCardBtn(p.id, true);
+}
+
+/* 마커 생성 (중복 방지) */
+function createMarker(p, lat, lng) {
+  if (mMap[p.id]) return mMap[p.id].marker; /* 이미 있으면 기존 마커 반환 */
+  var pos = new naver.maps.LatLng(lat, lng);
+  var isIn = (p.indoor === '실내' || p.indoor === '실내외');
+  var marker = new naver.maps.Marker({
+    position: pos,
+    map: map,
+    title: p.name,
+    icon: {
+      content: '<div class="map-pin ' + (isIn ? 'pin-i' : 'pin-o') + '">' + p.name + '</div>',
+      anchor: new naver.maps.Point(0, 0)
     }
-    var a = response.v2.addresses[0];
-    var lat = parseFloat(a.y), lng = parseFloat(a.x);
-    setCache(p, lat, lng);
-    putMarker(p, lat, lng);
-    updateCardBtn(p.id, true);
-    map.setCenter(new naver.maps.LatLng(lat, lng));
-    map.setZoom(16);
-    if (mMap[p.id]) openIW(p, mMap[p.id].marker);
-    cb(true);
   });
+  mMap[p.id] = { marker: marker, lat: lat, lng: lng };
+  markers.push(marker);
+  naver.maps.Event.addListener(marker, 'click', function() {
+    selId = p.id;
+    renderCards();
+    openIW(p, marker);
+    var el = document.querySelector('[data-id="' + p.id + '"]');
+    if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  });
+  return marker;
+}
+
+/* 지도 이동 + 정보창 열기 */
+function goToMarker(p, lat, lng, marker) {
+  map.setCenter(new naver.maps.LatLng(lat, lng));
+  map.setZoom(16);
+  openIW(p, marker);
+}
+
+/* 버튼 텍스트 변경 헬퍼 */
+function setBtn(id, text) {
+  var btn = document.querySelector('[data-map-btn="' + id + '"]');
+  if (btn) btn.textContent = text;
 }
 
 /* ================================================
