@@ -519,145 +519,258 @@ function selectCard(id) {
 }
 
 /* ═══════════════════════════════════════
-   마커 렌더링
-   공식 문서:
-   - naver.maps.Service.geocode({ query }, fn(status, response))
-   - response.v2.addresses[0].x / .y
-   - new naver.maps.Marker({ position, map })
-   - naver.maps.Event.addListener(marker, 'click', fn)
+   검색 쿼리 생성
 ═══════════════════════════════════════ */
 function makeQuery(p) {
+  /* "수영장" 제거 후 시설명 + 시도 + 시군구 조합 */
   var clean = p.name.replace(/수영장/g, '').replace(/\s+/g, ' ').trim();
   return clean + ' ' + p.sido + ' ' + p.sigungu;
 }
 
+/* ═══════════════════════════════════════
+   마커 전체 초기화 (검색 시 기존 마커만 제거)
+   — 검색 결과마다 전체 geocode 호출 금지
+     (API 일일 허용량 소진 방지)
+═══════════════════════════════════════ */
 function renderMarkers() {
   if (!map) return;
   markers.forEach(function(m) { m.setMap(null); });
   markers = [];
   markerMap = {};
+}
 
-  var filtered = getFiltered();
+/* ═══════════════════════════════════════
+   지도에 마커 1개 그리기 (공식 문서 기준)
+   공식 문서:
+     new naver.maps.Marker({ position, map, title, icon })
+     naver.maps.Event.addListener(marker, 'click', fn)
+═══════════════════════════════════════ */
+function placeMarker(p, lat, lng) {
+  var pos = new naver.maps.LatLng(lat, lng);
 
-  filtered.forEach(function(p) {
-    naver.maps.Service.geocode({ query: makeQuery(p) }, function(status, response) {
-      if (status !== naver.maps.Service.Status.OK) return;
-      var addrs = response.v2 && response.v2.addresses;
-      if (!addrs || !addrs.length) return;
-
-      var lat = parseFloat(addrs[0].y);
-      var lng = parseFloat(addrs[0].x);
-      var pos = new naver.maps.LatLng(lat, lng);
-
-      /* 공식 문서 기준 마커 */
-      var marker = new naver.maps.Marker({
-        position: pos,
-        map: map,
-        title: p.name,
-        icon: {
-          content: '<div style="background:' + (p.indoor === '실내' ? '#1255CC' : '#059669') +
-            ';color:#fff;padding:5px 10px;border-radius:14px;font-size:11px;font-weight:700;' +
-            'font-family:Noto Sans KR,sans-serif;white-space:nowrap;' +
-            'box-shadow:0 2px 8px rgba(0,0,0,0.3);">' + p.name + '</div>',
-          anchor: new naver.maps.Point(0, 0)
-        }
-      });
-
-      markerMap[p.id] = { marker: marker, lat: lat, lng: lng };
-
-      /* 공식 문서 기준 이벤트 */
-      naver.maps.Event.addListener(marker, 'click', function() {
-        selectedId = p.id;
-        renderCards();
-        openInfoWindow(p, marker);
-        var el = document.querySelector('[data-id="' + p.id + '"]');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      });
-
-      markers.push(marker);
-    });
+  var marker = new naver.maps.Marker({
+    position: pos,
+    map: map,
+    title: p.name,
+    icon: {
+      content: [
+        '<div style="',
+          'background:' + (p.indoor === '실내' ? '#1255CC' : '#059669') + ';',
+          'color:#fff;',
+          'padding:5px 10px;',
+          'border-radius:14px;',
+          'font-size:11px;',
+          'font-weight:700;',
+          'font-family:Noto Sans KR,sans-serif;',
+          'white-space:nowrap;',
+          'box-shadow:0 2px 8px rgba(0,0,0,0.3);',
+          'cursor:pointer;',
+        '">' + p.name + '</div>'
+      ].join(''),
+      anchor: new naver.maps.Point(0, 0)
+    }
   });
 
-  /* 첫 결과로 지도 중심 이동 */
-  if (filtered.length > 0) {
-    naver.maps.Service.geocode({ query: makeQuery(filtered[0]) }, function(status, response) {
-      if (status !== naver.maps.Service.Status.OK) return;
-      var addrs = response.v2 && response.v2.addresses;
-      if (!addrs || !addrs.length) return;
-      map.setCenter(new naver.maps.LatLng(parseFloat(addrs[0].y), parseFloat(addrs[0].x)));
-      map.setZoom(12);
-    });
-  }
+  markerMap[p.id] = { marker: marker, lat: lat, lng: lng };
+  markers.push(marker);
+
+  naver.maps.Event.addListener(marker, 'click', function() {
+    selectedId = p.id;
+    renderCards();
+    openInfoWindow(p, marker);
+    var el = document.querySelector('[data-id="' + p.id + '"]');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  return marker;
 }
 
 /* ═══════════════════════════════════════
    지도 보기 버튼
+   공식 문서 geocode 패턴:
+     naver.maps.Service.geocode({ query }, fn(status, response))
+     status === naver.maps.Service.Status.OK 확인
+     response.v2.addresses[0].x(경도) / .y(위도)
 ═══════════════════════════════════════ */
 function showOnMap(id) {
-  if (!map) return;
-  var p = null;
-  for (var i = 0; i < POOLS.length; i++) { if (POOLS[i].id === id) { p = POOLS[i]; break; } }
-  if (!p) return;
-
-  if (markerMap[id]) {
-    var m = markerMap[id];
-    map.setCenter(new naver.maps.LatLng(m.lat, m.lng));
-    map.setZoom(16);
-    openInfoWindow(p, m.marker);
+  if (!map) {
+    alert('지도가 아직 준비되지 않았습니다.');
     return;
   }
 
-  naver.maps.Service.geocode({ query: makeQuery(p) }, function(status, response) {
-    if (status !== naver.maps.Service.Status.OK) return;
+  /* POOLS에서 해당 시설 찾기 */
+  var p = null;
+  for (var i = 0; i < POOLS.length; i++) {
+    if (POOLS[i].id === id) { p = POOLS[i]; break; }
+  }
+  if (!p) return;
+
+  /* 이미 geocode 완료된 마커가 있으면 바로 이동 */
+  if (markerMap[id]) {
+    var cached = markerMap[id];
+    map.setCenter(new naver.maps.LatLng(cached.lat, cached.lng));
+    map.setZoom(16);
+    openInfoWindow(p, cached.marker);
+    return;
+  }
+
+  /* 지도 영역에 로딩 표시 */
+  var mapEl = document.getElementById('map');
+  mapEl.style.position = 'relative';
+  var loadingDiv = document.createElement('div');
+  loadingDiv.id = 'map-loading';
+  loadingDiv.style.cssText = [
+    'position:absolute;top:50%;left:50%;',
+    'transform:translate(-50%,-50%);',
+    'background:rgba(255,255,255,0.92);',
+    'padding:12px 20px;border-radius:8px;',
+    'font-family:Noto Sans KR,sans-serif;',
+    'font-size:13px;font-weight:500;',
+    'color:#1255CC;z-index:999;',
+    'box-shadow:0 2px 12px rgba(0,0,0,0.12);'
+  ].join('');
+  loadingDiv.textContent = '📍 위치 검색 중...';
+  mapEl.appendChild(loadingDiv);
+
+  function removeLoading() {
+    var el = document.getElementById('map-loading');
+    if (el) el.parentNode.removeChild(el);
+  }
+
+  var query = makeQuery(p);
+
+  /* 공식 문서 기준 geocode 호출 */
+  naver.maps.Service.geocode({ query: query }, function(status, response) {
+    removeLoading();
+
+    /* 실패 시 — 원인 표시 후 fallback 쿼리 시도 */
+    if (status !== naver.maps.Service.Status.OK) {
+      console.warn('[geocode] API 오류. query:', query, 'status:', status);
+      tryFallback(p);
+      return;
+    }
+
     var addrs = response.v2 && response.v2.addresses;
-    if (!addrs || !addrs.length) return;
+    if (!addrs || addrs.length === 0) {
+      console.warn('[geocode] 결과 없음. query:', query);
+      tryFallback(p);
+      return;
+    }
 
     var lat = parseFloat(addrs[0].y);
     var lng = parseFloat(addrs[0].x);
-    var pos = new naver.maps.LatLng(lat, lng);
+    console.log('[geocode] 성공:', p.name, lat, lng);
 
-    map.setCenter(pos);
+    map.setCenter(new naver.maps.LatLng(lat, lng));
     map.setZoom(16);
-
-    var marker = new naver.maps.Marker({
-      position: pos,
-      map: map,
-      title: p.name,
-      icon: {
-        content: '<div style="background:' + (p.indoor === '실내' ? '#1255CC' : '#059669') +
-          ';color:#fff;padding:5px 10px;border-radius:14px;font-size:11px;font-weight:700;' +
-          'font-family:Noto Sans KR,sans-serif;white-space:nowrap;' +
-          'box-shadow:0 2px 8px rgba(0,0,0,0.3);">' + p.name + '</div>',
-        anchor: new naver.maps.Point(0, 0)
-      }
-    });
-
-    markerMap[id] = { marker: marker, lat: lat, lng: lng };
-    markers.push(marker);
+    var marker = placeMarker(p, lat, lng);
     openInfoWindow(p, marker);
   });
 }
 
+/* 1차 쿼리 실패 시 시설명만으로 재시도 */
+function tryFallback(p) {
+  var fallbackQuery = p.name + ' ' + p.sido;
+  console.log('[geocode] fallback 시도:', fallbackQuery);
+
+  var mapEl = document.getElementById('map');
+  var loadingDiv = document.createElement('div');
+  loadingDiv.id = 'map-loading';
+  loadingDiv.style.cssText = [
+    'position:absolute;top:50%;left:50%;',
+    'transform:translate(-50%,-50%);',
+    'background:rgba(255,255,255,0.92);',
+    'padding:12px 20px;border-radius:8px;',
+    'font-family:Noto Sans KR,sans-serif;',
+    'font-size:13px;font-weight:500;',
+    'color:#059669;z-index:999;',
+    'box-shadow:0 2px 12px rgba(0,0,0,0.12);'
+  ].join('');
+  loadingDiv.textContent = '🔄 다시 검색 중...';
+  mapEl.appendChild(loadingDiv);
+
+  naver.maps.Service.geocode({ query: fallbackQuery }, function(status, response) {
+    var el = document.getElementById('map-loading');
+    if (el) el.parentNode.removeChild(el);
+
+    if (status !== naver.maps.Service.Status.OK) {
+      console.error('[geocode] fallback도 실패. status:', status);
+      showMapError(p.name + ' 위치를 찾을 수 없습니다.\nAPI 인증 또는 할당량을 확인하세요.');
+      return;
+    }
+
+    var addrs = response.v2 && response.v2.addresses;
+    if (!addrs || addrs.length === 0) {
+      console.warn('[geocode] fallback 결과 없음');
+      showMapError(p.name + ' 위치를 찾을 수 없습니다.');
+      return;
+    }
+
+    var lat = parseFloat(addrs[0].y);
+    var lng = parseFloat(addrs[0].x);
+    console.log('[geocode] fallback 성공:', p.name, lat, lng);
+
+    map.setCenter(new naver.maps.LatLng(lat, lng));
+    map.setZoom(15);
+    var marker = placeMarker(p, lat, lng);
+    openInfoWindow(p, marker);
+  });
+}
+
+/* 지도 위에 오류 메시지 표시 */
+function showMapError(msg) {
+  var mapEl = document.getElementById('map');
+  var old = document.getElementById('map-error');
+  if (old) old.parentNode.removeChild(old);
+
+  var errDiv = document.createElement('div');
+  errDiv.id = 'map-error';
+  errDiv.style.cssText = [
+    'position:absolute;top:50%;left:50%;',
+    'transform:translate(-50%,-50%);',
+    'background:rgba(255,255,255,0.95);',
+    'padding:16px 20px;border-radius:10px;',
+    'font-family:Noto Sans KR,sans-serif;',
+    'font-size:13px;font-weight:500;',
+    'color:#DC2626;z-index:999;',
+    'box-shadow:0 2px 16px rgba(0,0,0,0.15);',
+    'text-align:center;max-width:260px;',
+    'white-space:pre-line;'
+  ].join('');
+  errDiv.innerHTML = '⚠️ ' + msg +
+    '<br><button onclick="var e=document.getElementById('map-error');if(e)e.parentNode.removeChild(e)" ' +
+    'style="margin-top:10px;padding:4px 12px;border:none;border-radius:5px;' +
+    'background:#DC2626;color:#fff;cursor:pointer;font-size:12px;">닫기</button>';
+  mapEl.appendChild(errDiv);
+}
+
 /* ═══════════════════════════════════════
-   정보창 — 공식 문서: setContent + open(map, marker)
+   정보창 열기
+   공식 문서: infoWindow.setContent(html) + infoWindow.open(map, marker)
 ═══════════════════════════════════════ */
 function openInfoWindow(p, marker) {
-  if (!infoWindow) return;
+  if (!infoWindow || !map) return;
+
   var laneText = (p.lanes && p.lanes !== '0' && p.lanes !== '-') ? p.lanes + '레인' : '';
   var sizeText = (p.length && p.width) ? p.length + 'm × ' + p.width + 'm' : '';
-  var iColor = p.indoor === '실내' ? '#6D28D9' : '#0369A1';
-  var iBg    = p.indoor === '실내' ? '#EDE9FE' : '#E0F9FF';
+  var iColor   = p.indoor === '실내' ? '#6D28D9' : '#0369A1';
+  var iBg      = p.indoor === '실내' ? '#EDE9FE' : '#E0F9FF';
 
+  /* 공식 문서 기준: setContent → open */
   infoWindow.setContent(
-    '<div style="padding:12px 14px;font-family:Noto Sans KR,sans-serif;min-width:180px;max-width:240px">' +
-      '<div style="font-weight:700;font-size:13px;margin-bottom:4px;line-height:1.3">' + p.name + '</div>' +
+    '<div style="padding:12px 14px;font-family:Noto Sans KR,sans-serif;' +
+      'min-width:180px;max-width:240px;line-height:1.4">' +
+      '<div style="font-weight:700;font-size:13px;margin-bottom:4px">' + p.name + '</div>' +
       '<div style="font-size:11px;color:#6B7280;margin-bottom:8px">' +
         p.sido + ' ' + p.sigungu + (p.addr ? ' · ' + p.addr : '') +
       '</div>' +
       '<div style="display:flex;gap:5px;flex-wrap:wrap">' +
-        '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;background:' + iBg + ';color:' + iColor + '">' + p.indoor + '</span>' +
-        (laneText ? '<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:#F1F5F9;color:#475569">' + laneText + '</span>' : '') +
-        (sizeText ? '<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:#FEF3C7;color:#92400E">' + sizeText + '</span>' : '') +
+        '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;' +
+          'background:' + iBg + ';color:' + iColor + '">' + p.indoor + '</span>' +
+        (laneText ? '<span style="font-size:11px;padding:2px 8px;border-radius:4px;' +
+          'background:#F1F5F9;color:#475569">' + laneText + '</span>' : '') +
+        (sizeText ? '<span style="font-size:11px;padding:2px 8px;border-radius:4px;' +
+          'background:#FEF3C7;color:#92400E">' + sizeText + '</span>' : '') +
       '</div>' +
     '</div>'
   );
