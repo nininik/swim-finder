@@ -627,7 +627,7 @@ function showOnMap(id) {
   var p = POOLS.filter(function(x) { return x.id === id; })[0];
   if (!p) return;
 
-  /* 이미 마커가 그려진 경우 → 바로 이동 */
+  /* markerMap에 이미 좌표가 있으면 즉시 이동 */
   if (markerMap[id]) {
     var m = markerMap[id];
     map.setCenter(new naver.maps.LatLng(m.lat, m.lng));
@@ -636,15 +636,40 @@ function showOnMap(id) {
     return;
   }
 
-  /* 마커 없으면 geocode 후 이동 */
+  /* 마커가 아직 없으면 (geocode 비동기 완료 전) 직접 geocode 실행 */
   var cleanP = p.name.replace(/수영장/g, "").replace(/\s+/g, " ").trim();
   var query = cleanP + " " + p.sido + " " + p.sigungu;
+
   naver.maps.Service.geocode({ query: query }, function(status, response) {
     if (status !== naver.maps.Service.Status.OK) return;
     if (!response.v2 || !response.v2.addresses || !response.v2.addresses.length) return;
-    var a = response.v2.addresses[0];
-    map.setCenter(new naver.maps.LatLng(parseFloat(a.y), parseFloat(a.x)));
+
+    var a   = response.v2.addresses[0];
+    var lat = parseFloat(a.y);
+    var lng = parseFloat(a.x);
+    var pos = new naver.maps.LatLng(lat, lng);
+
+    map.setCenter(pos);
     map.setZoom(16);
+
+    /* 마커도 함께 생성해서 표시 */
+    var marker = new naver.maps.Marker({
+      position: pos,
+      map: map,
+      title: p.name,
+      icon: {
+        content:
+          '<div style="background:' + (p.indoor === "실내" ? "#1255CC" : "#059669") +
+          ';color:#fff;padding:5px 10px;border-radius:14px;font-size:11px;font-weight:700;' +
+          'font-family:Noto Sans KR,sans-serif;white-space:nowrap;' +
+          'box-shadow:0 2px 8px rgba(0,0,0,0.3);">' + p.name + '</div>',
+        anchor: new naver.maps.Point(0, 0)
+      }
+    });
+
+    markerMap[id] = { marker: marker, lat: lat, lng: lng };
+    markers.push(marker);
+    openInfoWindow(p, marker);
   });
 }
 
