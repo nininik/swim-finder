@@ -21,8 +21,9 @@
 -->
 <script>
   const NAVER_CLIENT_ID = "tg6az681o1";
-  const USE_MAP = NAVER_CLIENT_ID !== "YOUR_NAVER_CLIENT_ID";
+  const USE_MAP = true;
 </script>
+<script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=tg6az681o1&submodules=geocoder"></script>
 
 <style>
 :root {
@@ -649,14 +650,7 @@ document.querySelectorAll(".chip").forEach(btn => {
 
 /* ── 초기화 ── */
 window.addEventListener("load", () => {
-  if (USE_MAP) {
-    const script = document.createElement("script");
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${NAVER_CLIENT_ID}&submodules=geocoder`;
-    script.onload = initMap;
-    document.head.appendChild(script);
-  } else {
-    initMap();
-  }
+  initMap();
 });
 </script>
 </body>
