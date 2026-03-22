@@ -560,10 +560,9 @@ function renderMarkers() {
   var filtered = getFiltered();
 
   filtered.forEach(function(p) {
-    var query = p.fullAddr || (p.sido + " " + p.sigungu + " " + p.addr);
-    if (!query.trim()) return;
+    /* 시설명 + 시도/시군구 로 검색 → 지번주소보다 정확도 높음 */
+    var query = p.name + " " + p.sido + " " + p.sigungu;
 
-    /* 공식 문서 기준 geocode 호출 */
     naver.maps.Service.geocode({ query: query }, function(status, response) {
       if (status !== naver.maps.Service.Status.OK) return;
       if (!response.v2 || !response.v2.addresses || !response.v2.addresses.length) return;
@@ -606,7 +605,7 @@ function renderMarkers() {
   /* 첫 번째 결과로 지도 중심 이동 */
   if (filtered.length > 0) {
     var first = filtered[0];
-    var q = first.fullAddr || (first.sido + " " + first.sigungu);
+    var q = first.name + " " + first.sido + " " + first.sigungu;
     naver.maps.Service.geocode({ query: q }, function(status, response) {
       if (status !== naver.maps.Service.Status.OK) return;
       if (!response.v2 || !response.v2.addresses || !response.v2.addresses.length) return;
@@ -635,7 +634,7 @@ function showOnMap(id) {
   }
 
   /* 마커 없으면 geocode 후 이동 */
-  var query = p.fullAddr || (p.sido + " " + p.sigungu + " " + p.addr);
+  var query = p.name + " " + p.sido + " " + p.sigungu;
   naver.maps.Service.geocode({ query: query }, function(status, response) {
     if (status !== naver.maps.Service.Status.OK) return;
     if (!response.v2 || !response.v2.addresses || !response.v2.addresses.length) return;
