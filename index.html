@@ -200,14 +200,24 @@ function setC(p,lat,lng){try{localStorage.setItem(ck(p),JSON.stringify({lat:lat,
 
 /* ================================================
    geocode 쿼리
+   - 주소 있으면: "시도 시군구 주소" (가장 정확)
+   - 주소 없으면: "시설명 시도 시군구" (이름 검색)
 ================================================ */
 function mkQ(p){
+  if(p.addr && p.addr.trim().length > 2){
+    return p.sido + ' ' + p.sg + ' ' + p.addr.trim();
+  }
   var c=p.name;
   c=c.replace(/\([^)]*수영장[^)]*\)/g,'');
   c=c.replace(/수영장/g,'');
   c=c.replace(/\([^)]*\)/g,'');
   c=c.replace(/[/\\]/g,' ');
   c=c.replace(/\s+/g,' ').trim();
+  return c+' '+p.sido+' '+p.sg;
+}
+/* fallback용: 이름만으로 검색 */
+function mkQname(p){
+  var c=p.name.replace(/수영장/g,'').replace(/\([^)]*\)/g,'').replace(/\s+/g,' ').trim();
   return c+' '+p.sido+' '+p.sg;
 }
 
@@ -241,9 +251,8 @@ function nextQ(){
       var lat=parseFloat(a.y), lng=parseFloat(a.x);
       setC(p,lat,lng); mkMark(p,lat,lng); updBtn(p.id,true);
     } else {
-      // fallback: 이름만
-      var q2=p.name.replace(/수영장/g,'').replace(/\([^)]*\)/g,'').replace(/\s+/g,' ').trim()+' '+p.sido;
-      naver.maps.Service.geocode({query:q2},function(s2,r2){
+      // fallback: 이름으로 재시도
+      naver.maps.Service.geocode({query:mkQname(p)},function(s2,r2){
         if(s2===naver.maps.Service.Status.OK && r2.v2 && r2.v2.addresses && r2.v2.addresses.length){
           var a2=r2.v2.addresses[0];
           setC(p,parseFloat(a2.y),parseFloat(a2.x));
@@ -409,13 +418,12 @@ function showOnMap(id){
     return;
   }
 
-  /* ③ geocode API 호출 (시설명 + 지역) */
+  /* ③ geocode API 호출 (주소 or 시설명 + 지역) */
   setBtn(id,'⌛ 검색 중...');
   geocodePool(p,mkQ(p),function(ok){
     if(!ok){
-      /* fallback: 시설명만 */
-      var q2=p.name.replace(/수영장/g,'').replace(/\([^)]*\)/g,'').replace(/\s+/g,' ').trim()+' '+p.sido;
-      geocodePool(p,q2,function(ok2){
+      /* fallback: 이름으로 재시도 */
+      geocodePool(p,mkQname(p),function(ok2){
         if(!ok2)setBtn(id,'❌ 위치 없음');
       });
     }
