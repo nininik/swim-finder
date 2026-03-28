@@ -247,24 +247,29 @@ function setC(p,lat,lng){try{localStorage.setItem(ck(p),JSON.stringify({lat:lat,
 
 /* ================================================
    geocode 쿼리
-   - 주소 있으면: "시도 시군구 주소" (가장 정확)
-   - 주소 없으면: "시설명 시도 시군구" (이름 검색)
+   - JSON 기준 우선순위: 시설명(name) → 시도·구군 → 주소(보조)
 ================================================ */
-function mkQ(p){
-  if(p.addr && p.addr.trim().length > 2){
-    return p.sido + ' ' + p.sg + ' ' + p.addr.trim();
-  }
+function geocodeNamePart(p){
   var c=p.name;
   c=c.replace(/\([^)]*수영장[^)]*\)/g,'');
   c=c.replace(/수영장/g,'');
   c=c.replace(/\([^)]*\)/g,'');
   c=c.replace(/[/\\]/g,' ');
   c=c.replace(/\s+/g,' ').trim();
-  return c+' '+p.sido+' '+p.sg;
+  return c;
+}
+function mkQ(p){
+  var nm=geocodeNamePart(p);
+  var base=(nm?nm+' ':'')+p.sido+' '+p.sg;
+  if(p.addr && p.addr.trim().length > 2){
+    return base+' '+p.addr.trim();
+  }
+  return base.replace(/\s+/g,' ').trim();
 }
 /* fallback용: 이름만으로 검색 */
 function mkQname(p){
-  var c=p.name.replace(/수영장/g,'').replace(/\([^)]*\)/g,'').replace(/\s+/g,' ').trim();
+  var c=geocodeNamePart(p);
+  if(!c)c=p.name.replace(/\s+/g,' ').trim();
   return c+' '+p.sido+' '+p.sg;
 }
 
@@ -348,8 +353,19 @@ function doSearch(){
   if(!q)return;
   showLoad(); clearQ(); clearMarkers(); selId=null;
   setTimeout(function(){
+    function matchPri(p){
+      if(p.name.indexOf(q)!==-1)return 0;
+      if(p.sg.indexOf(q)!==-1)return 1;
+      if(p.sido.indexOf(q)!==-1)return 2;
+      if(p.addr.indexOf(q)!==-1)return 3;
+      return 9;
+    }
     matched=POOLS.filter(function(p){
       return p.name.includes(q)||p.sido.includes(q)||p.sg.includes(q)||p.addr.includes(q);
+    }).sort(function(a,b){
+      var d=matchPri(a)-matchPri(b);
+      if(d!==0)return d;
+      return a.name.localeCompare(b.name,'ko');
     });
     renderCards();
     if(!matched.length)return;
