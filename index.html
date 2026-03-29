@@ -317,24 +317,31 @@ function nextQ(){
 }
 
 /* ================================================
-   마커 생성 (공식 문서: new naver.maps.Marker)
+   마커 생성
+   공식 문서(마커): HTML 아이콘은 anchor를 요소 중앙 하단에 설정
+   공식 문서(정보창): 클릭 시 iw.open(map, LatLng) — 마커 객체 대신
+     위치(LatLng)를 직접 전달하면 HTML 아이콘의 앵커 계산 오류를 피함
 ================================================ */
 function mkMark(p,lat,lng){
   if(!map||mMap[p.id]) return;
   var pos=new naver.maps.LatLng(lat,lng);
   var isI=(p.indoor==='실내'||p.indoor==='실내외');
+  /* 공식 문서(마커-HTML 아이콘 예제):
+     anchor 는 content 요소 내 지리 좌표가 대응하는 픽셀 위치.
+     pill 높이 약 30px → anchor.y=30 으로 하단 중앙에 좌표 대응 */
   var marker=new naver.maps.Marker({
     position:pos, map:map, title:p.name,
     icon:{
       content:'<div class="pin '+(isI?'pin-i':'pin-o')+'">'+p.name+'</div>',
-      anchor:new naver.maps.Point(0,0)
+      anchor:new naver.maps.Point(0,30)
     }
   });
   mMap[p.id]={marker:marker,lat:lat,lng:lng};
   markers.push(marker);
-  /* 공식 문서: naver.maps.Event.addListener */
+  /* 공식 문서(이벤트): naver.maps.Event.addListener
+     iw.open 에 marker 대신 LatLng(pos)를 전달 */
   naver.maps.Event.addListener(marker,'click',function(){
-    selId=p.id; renderCards(); openIW(p,marker);
+    selId=p.id; renderCards(); openIW(p,pos);
     var el=document.querySelector('[data-id="'+p.id+'"]');
     if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
   });
@@ -514,18 +521,25 @@ function geocodePool(p,query,cb){
   });
 }
 
-/* 지도 이동 + 정보창 */
+/* 지도 이동 + 정보창
+   공식 문서(지도): map.setCenter(LatLng) + map.setZoom(n)
+   공식 문서(정보창): openIW 에 LatLng 전달 */
 function gotoMap(p,lat,lng,marker){
-  /* 공식 문서: map.setCenter + map.setZoom */
-  map.setCenter(new naver.maps.LatLng(lat,lng));
+  var pos=new naver.maps.LatLng(lat,lng);
+  map.setCenter(pos);
   map.setZoom(16);
-  if(marker)openIW(p,marker);
+  openIW(p,pos);
 }
 
 /* ================================================
-   정보창 (공식 문서: setContent + open)
+   정보창
+   공식 문서(정보창-기본 예제):
+     1) iw.setContent(htmlString) 로 내용 설정
+     2) iw.getMap() 로 이미 열려있는지 확인 후 close()
+     3) iw.open(map, position) — position 에 LatLng 를 전달하면
+        HTML 아이콘 마커의 anchor 값에 무관하게 좌표에 정확히 표시됨
 ================================================ */
-function openIW(p,marker){
+function openIW(p,position){
   if(!iw||!map)return;
   var lane=(p.lanes&&p.lanes!=='0'&&p.lanes!=='-')?p.lanes+'레인':'';
   var size=(p.length&&p.width)?p.length+'m × '+p.width+'m':'';
@@ -543,8 +557,10 @@ function openIW(p,marker){
     '</div>'+
     '</div>'
   );
-  /* 공식 문서: open(map, marker) */
-  iw.open(map,marker);
+  /* 공식 문서: 이미 열려 있으면 close() 후 재open */
+  if(iw.getMap()) iw.close();
+  /* 공식 문서: open(map, position) — LatLng 전달로 정확한 좌표에 표시 */
+  iw.open(map, position);
 }
 
 /* ================================================
@@ -584,11 +600,22 @@ document.querySelectorAll('.ch').forEach(function(b){
    - SDK는 위 <head>에서 동기 로드됐으므로
      naver 객체가 이미 사용 가능
 ================================================ */
+/* 공식 문서(Hello World): SDK 동기 로드 후 즉시 초기화 */
 map = new naver.maps.Map('map', {
   center: new naver.maps.LatLng(36.5, 127.5),
   zoom: 7
 });
-iw = new naver.maps.InfoWindow({ anchorSkew: true });
+
+/* 공식 문서(정보창): anchorSkew 제거 — HTML 아이콘 마커와 함께 쓸 때
+   iw.open(map, LatLng) 패턴을 쓰므로 앵커 스큐 불필요 */
+iw = new naver.maps.InfoWindow({
+  borderWidth: 1,
+  borderColor: '#dde3ec',
+  anchorSize: new naver.maps.Size(12, 14),
+  anchorColor: '#fff',
+  pixelOffset: new naver.maps.Point(0, -8),
+  backgroundColor: '#fff'
+});
 
 </script>
 </body>
