@@ -2,621 +2,271 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>공영수영장 찾기 🏊</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
-
-<!-- ① 인증 실패 핸들러: SDK 로드 전 반드시 정의 -->
-<script>
-window.navermap_authFailure = function() {
-  var el = document.getElementById('map');
-  if (el) el.innerHTML =
-    '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'+
-    'height:100%;gap:12px;font-family:sans-serif;color:#4B5775;text-align:center;padding:2rem">'+
-    '<div style="font-size:36px">🔑</div>'+
-    '<div style="font-size:13px;font-weight:500">API 인증 실패<br>Client ID 또는 허용 도메인을 확인하세요</div></div>';
-};
-</script>
-
-<!-- ② SDK 동기 로드 (Hello World 예제 방식) -->
-<script type="text/javascript"
-  src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=tg6az681o1&submodules=geocoder">
-</script>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>공영수영장 찾기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;font-family:"Noto Sans KR",sans-serif;background:#F5F7FA;color:#12192E}
-:root{
-  --blue:#1255CC;--navy:#0A2A6E;--green:#059669;
-  --surface:#fff;--border:#DDE3EC;
-  --text:#12192E;--sub:#4B5775;--muted:#8897B3;
-}
-/* 전체 레이아웃 */
-.wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden}
-header{flex:0 0 52px;background:var(--navy);color:#fff;
-  padding:0 20px;display:flex;align-items:center;gap:8px;z-index:10}
-header .logo{font-size:18px}
-header h1{font-size:15px;font-weight:700}
-header .cnt{font-size:11px;color:#93A8D0;margin-left:4px}
-/* 진행 바 */
-#gbar{flex:0 0 3px;background:#DDE3EC}
-#gprog{height:3px;width:0;background:var(--blue);transition:width .2s}
-/* 본문 */
-.body{flex:1 1 0;min-height:0;display:grid;grid-template-columns:380px 1fr}
-/* 사이드바 */
-.sb{display:flex;flex-direction:column;border-right:1px solid var(--border);background:#fff;overflow:hidden}
-.sa{flex:0 0 auto;padding:14px 14px 10px;border-bottom:1px solid var(--border)}
-.sr{display:flex;gap:7px;margin-bottom:8px}
-.si{flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none}
-.si:focus{border-color:var(--blue)}
-.sbtn{padding:9px 14px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
-.qr{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
-.qb{padding:3px 9px;border:1px solid var(--border);border-radius:20px;font-size:11px;cursor:pointer;background:#fff;color:var(--sub);font-family:inherit}
-.qb:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
-.fr{display:flex;gap:5px;flex-wrap:wrap}
-.ch{padding:4px 11px;border:1.5px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;background:#fff;color:var(--sub);font-family:inherit;font-weight:500}
-.ch.on{background:var(--blue);color:#fff;border-color:var(--blue)}
-/* 결과 목록 */
-.res{flex:1 1 0;overflow-y:auto;padding:10px}
-.ri{font-size:12px;color:var(--muted);margin-bottom:8px;padding:0 2px}
-.ri strong{color:var(--blue)}
-/* 카드 */
-.card{background:#fff;border:1.5px solid var(--border);border-radius:10px;
-  padding:11px 13px;margin-bottom:7px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
-.card:hover{border-color:#93A8D0;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-.card.sel{border-color:var(--blue);box-shadow:0 2px 12px rgba(18,85,204,.12)}
-.ct{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:3px}
-.cn{font-size:13px;font-weight:700;line-height:1.3}
-.crg{font-size:11px;color:var(--muted);white-space:nowrap}
-.ca{font-size:11px;color:var(--muted);margin-top:3px}
-.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
-.tag{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500}
-.t-i{background:#EDE9FE;color:#6D28D9}
-.t-o{background:#DCFCE7;color:#166534}
-.t-l{background:#E0F2FE;color:#0369A1}
-.t-s{background:#FEF3C7;color:#92400E}
-.detail{display:none;margin-top:10px;padding-top:9px;border-top:1px solid var(--border)}
-.detail.open{display:block}
-.dg{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px}
-.di{background:#F8FAFC;border-radius:7px;padding:6px 9px}
-.dl{font-size:10px;color:var(--muted);font-weight:500;margin-bottom:1px;text-transform:uppercase}
-.dv{font-size:12px;font-weight:500}
-.ar{display:flex;gap:6px;flex-wrap:wrap}
-.abtn{display:inline-flex;align-items:center;gap:3px;padding:5px 12px;border-radius:6px;
-  font-size:11px;font-weight:500;font-family:inherit;text-decoration:none;cursor:pointer;border:none}
-.abtn:hover{opacity:.85}
-.bm{background:var(--blue);color:#fff}
-.bm.done{background:var(--green)}
-.bt{background:var(--green);color:#fff}
-.bw{background:#374151;color:#fff}
-/* 지도: 공식 문서 - 명시적 크기 필수 */
-#map{width:100%;height:100%}
-/* 마커 핀 */
-.pin{padding:5px 9px;border-radius:12px;font-size:11px;font-weight:700;
-  font-family:"Noto Sans KR",sans-serif;white-space:nowrap;cursor:pointer;
-  box-shadow:0 2px 8px rgba(0,0,0,.28)}
-.pin-i{background:#1255CC;color:#fff}
-.pin-o{background:#059669;color:#fff}
-/* 빈 상태 */
-.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:3rem 1rem;gap:9px;color:var(--muted);text-align:center}
-.ei{font-size:38px;line-height:1}
-.et{font-size:14px;font-weight:500;color:var(--sub)}
-.es{font-size:12px;line-height:1.6}
-.spin{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--blue);
-  border-radius:50%;animation:sp .7s linear infinite}
-@keyframes sp{to{transform:rotate(360deg)}}
-@media(max-width:768px){
-  .body{grid-template-columns:1fr;grid-template-rows:50vh 1fr}
-  #map{height:100%}
-}
+  :root {
+    --sky: #e8f4fd; --sky2: #d1eaf8; --blue: #2563eb; --blue-light: #3b82f6;
+    --blue-mid: #1d4ed8; --teal: #0891b2; --teal-light: #e0f2fe; --white: #ffffff;
+    --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0; --gray-300: #cbd5e1;
+    --gray-400: #94a3b8; --gray-500: #64748b; --gray-700: #334155; --gray-900: #0f172a;
+    --orange: #f97316; --orange-light: #fff7ed; --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow: 0 4px 16px rgba(0,0,0,0.08); --shadow-lg: 0 12px 32px rgba(0,0,0,0.1);
+    --radius: 14px; --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: var(--gray-50); color: var(--gray-900); min-height: 100vh; }
+
+  header {
+    background: linear-gradient(160deg, #1e40af 0%, #2563eb 40%, #0891b2 100%);
+    padding: 48px 24px 72px; text-align: center; position: relative; overflow: hidden;
+  }
+  header::before {
+    content: ''; position: absolute; bottom: -30px; left: -5%; width: 110%; height: 60px;
+    background: var(--gray-50); border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  }
+  .header-inner { position: relative; z-index: 1; }
+  .logo-badge {
+    display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 100px; padding: 6px 16px 6px 8px; margin-bottom: 20px;
+  }
+  .logo-badge .icon { background: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+  h1 { font-size: clamp(1.9rem, 5vw, 3.2rem); font-weight: 900; color: #fff; letter-spacing: -1.5px; margin-bottom: 10px; }
+  h1 em { font-style: normal; color: #bfdbfe; }
+  .tagline { color: rgba(255,255,255,0.72); font-size: 0.9rem; }
+
+  .search-section { max-width: 860px; margin: -26px auto 0; padding: 0 20px; position: relative; z-index: 10; }
+  .search-card { background: var(--white); border-radius: 18px; box-shadow: var(--shadow-lg); padding: 20px; }
+  .search-bar {
+    display: flex; align-items: center; gap: 10px; background: var(--gray-50);
+    border: 1.5px solid var(--gray-200); border-radius: var(--radius); padding: 10px 10px 10px 16px; margin-bottom: 14px;
+  }
+  #searchInput { flex: 1; background: none; border: none; outline: none; font-size: 0.95rem; }
+  .btn-search {
+    background: var(--blue); color: #fff; border: none; border-radius: var(--radius-sm);
+    padding: 10px 22px; font-weight: 700; cursor: pointer;
+  }
+
+  .filter-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .filter-select {
+    background: var(--white); border: 1.5px solid var(--gray-200); border-radius: var(--radius-sm);
+    padding: 7px 30px 7px 12px; appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
+
+  .chip-group { display: flex; gap: 6px; margin-left: auto; }
+  .filter-chip {
+    background: var(--white); border: 1.5px solid var(--gray-200); border-radius: 100px;
+    padding: 5px 14px; cursor: pointer; font-size: 0.8rem;
+  }
+  .filter-chip.active { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700; }
+
+  .stats-bar { max-width: 860px; margin: 20px auto 0; padding: 0 20px; }
+  .result-count { font-size: 0.85rem; color: var(--gray-500); }
+  .result-count strong { color: var(--blue); font-family: 'DM Mono', monospace; }
+
+  .grid-container {
+    max-width: 860px; margin: 14px auto 60px; padding: 0 20px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;
+  }
+  .pool-card {
+    background: var(--white); border: 1.5px solid var(--gray-200); border-radius: var(--radius);
+    padding: 18px; text-decoration: none; color: inherit; display: flex; flex-direction: column;
+    transition: transform 0.22s; position: relative; overflow: hidden;
+  }
+  .pool-card:hover { transform: translateY(-3px); border-color: var(--blue-light); box-shadow: var(--shadow-lg); }
+  .pool-card.indoor::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--blue), var(--teal)); }
+  .pool-card.outdoor::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--orange), #fbbf24); }
+
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-top: 6px; }
+  .card-name { font-size: 0.95rem; font-weight: 700; line-height: 1.35; color: var(--gray-900); flex: 1; }
+  .badge { font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+  .badge-indoor { background: var(--teal-light); color: var(--teal); }
+  .badge-outdoor { background: var(--orange-light); color: var(--orange); }
+  .card-district { font-size: 0.76rem; color: var(--blue); font-weight: 600; margin: 6px 0; }
+  .card-address { font-size: 0.77rem; color: var(--gray-400); line-height: 1.4; margin-bottom: 12px; }
+  .card-specs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .spec-pill { background: var(--gray-100); border-radius: 6px; padding: 3px 8px; font-size: 0.72rem; }
+  .naver-btn { font-size: 0.75rem; font-weight: 700; color: var(--blue); background: var(--sky); padding: 5px 10px; border-radius: 6px; }
+
+  .state-msg { text-align: center; padding: 80px 20px; color: var(--gray-400); }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <span class="logo">🏊</span>
-    <h1>공영수영장 찾기</h1>
-    <span id="poolCnt" class="cnt">목록 불러오는 중…</span>
-  </header>
-  <div id="gbar"><div id="gprog"></div></div>
-  <div class="body">
-    <aside class="sb">
-      <div class="sa">
-        <div class="sr">
-          <input id="si" class="si" type="text" placeholder="지역명 또는 시설명 (예: 강남구, 수원시)">
-          <button class="sbtn" onclick="doSearch()">검색</button>
-        </div>
-        <div class="qr">
-          <button class="qb" onclick="qs('서울')">서울</button>
-          <button class="qb" onclick="qs('경기')">경기</button>
-          <button class="qb" onclick="qs('부산')">부산</button>
-          <button class="qb" onclick="qs('대구')">대구</button>
-          <button class="qb" onclick="qs('인천')">인천</button>
-          <button class="qb" onclick="qs('광주')">광주</button>
-          <button class="qb" onclick="qs('대전')">대전</button>
-          <button class="qb" onclick="qs('강원')">강원</button>
-          <button class="qb" onclick="qs('제주')">제주</button>
-        </div>
-        <div class="fr">
-          <button class="ch on" data-f="all">전체</button>
-          <button class="ch" data-f="indoor">실내</button>
-          <button class="ch" data-f="outdoor">야외</button>
-          <button class="ch" data-f="lanes">레인 있음</button>
-          <button class="ch" data-f="50m">50m 풀</button>
-        </div>
-      </div>
-      <div class="res" id="res">
-        <div class="empty" id="emptyBox">
-          <div class="ei">🔍</div>
-          <div class="et">지역 또는 시설명을 검색하세요</div>
-          <div class="es">시도·구군·시설명 모두 검색 가능</div>
-        </div>
-        <div id="ri" class="ri" style="display:none"></div>
-        <div id="cardList"></div>
-      </div>
-    </aside>
 
-    <!-- ③ map div: 공식 문서 - width/height 명시 필수 -->
-    <div id="map"></div>
+<header>
+  <div class="header-inner">
+    <div class="logo-badge"><div class="icon">🏊</div><span>대한민국 공영수영장</span></div>
+    <h1>내 주변 <em>수영장</em> 찾기</h1>
+    <p class="tagline">지역 이름으로 가까운 공공 수영장을 검색하세요</p>
+  </div>
+</header>
 
+<div class="search-section">
+  <div class="search-card">
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="예) 종로, 강남구, 한강공원..." autocomplete="off">
+      <button class="btn-search" onclick="applyFilters()">검색</button>
+    </div>
+    <div class="filter-row">
+      <select class="filter-select" id="sidoFilter" onchange="onSidoChange()"><option value="">전체 시도</option></select>
+      <select class="filter-select" id="sigunguFilter" onchange="applyFilters()"><option value="">전체 시군구</option></select>
+      <div class="chip-group">
+        <button class="filter-chip active" id="chipAll" onclick="setTypeFilter('all')">전체</button>
+        <button class="filter-chip" id="chipIndoor" onclick="setTypeFilter('indoor')">🏗 실내</button>
+        <button class="filter-chip" id="chipOutdoor" onclick="setTypeFilter('outdoor')">☀️ 실외</button>
+      </div>
+    </div>
   </div>
 </div>
 
+<div class="stats-bar">
+  <div class="result-count" id="resultCount">데이터 불러오는 중...</div>
+</div>
+
+<div id="mainContent"></div>
+
 <script>
-/* ================================================
-   데이터
-================================================ */
-var POOLS_URL = 'https://nininik.github.io/test/data/data.json';
-var POOLS = [];
-var POOLS_READY = false;
+  let allPools = [];
+  let typeFilter = 'all';
 
-function inferIndoorFromName(name) {
-  if (!name) return '실내';
-  if (name.indexOf('야외') !== -1 || name.indexOf('워터파크') !== -1) return '실외';
-  return '실내';
-}
-function mapRemotePool(d, i) {
-  var sido = (d.province || '').replace(/\s+/g, ' ').trim();
-  var sg = (d.district || '').replace(/\s+/g, ' ').trim();
-  var name = (d.name || '').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-  var addr = (d.address || '').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-  var note = d['비고'] != null ? String(d['비고']).trim() : '';
-  return {
-    id: i,
-    name: name,
-    sido: sido,
-    sg: sg,
-    addr: addr,
-    indoor: inferIndoorFromName(name),
-    lanes: '',
-    length: '',
-    width: '',
-    tel: '',
-    hp: '',
-    year: '',
-    note: note
-  };
-}
-function applyRemotePools(data) {
-  if (!Array.isArray(data)) return;
-  POOLS = data.map(mapRemotePool).filter(function(p) { return p.name; });
-  POOLS_READY = true;
-  var cnt = document.getElementById('poolCnt');
-  if (cnt) cnt.textContent = '전국 ' + POOLS.length + '개 시설';
-  var eb = document.getElementById('emptyBox');
-  if (eb && !matched.length) {
-    eb.innerHTML = '<div class="ei">🔍</div>' +
-      '<div class="et">지역 또는 시설명을 검색하세요</div>' +
-      '<div class="es">시도·구군·시설명 모두 검색 가능</div>';
-  }
-}
-fetch(POOLS_URL)
-  .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-  .then(applyRemotePools)
-  .catch(function() {
-    POOLS_READY = false;
-    var eb = document.getElementById('emptyBox');
-    if (eb) {
-      eb.style.display = 'flex';
-      eb.innerHTML = '<div class="ei">⚠️</div>' +
-        '<div class="et">시설 목록을 불러올 수 없습니다</div>' +
-        '<div class="es">네트워크 또는 <a href="' + POOLS_URL + '" target="_blank" style="color:#1255CC">데이터 주소</a>를 확인해 주세요.</div>';
-    }
-    var cnt = document.getElementById('poolCnt');
-    if (cnt) cnt.textContent = '데이터 오류';
-  });
+  // 1. 데이터 로드 및 병합 로직
+  Promise.all([
+    fetch('https://nininik.github.io/swim-finder/data/pools.json').then(r => r.json()),
+    fetch('https://nininik.github.io/test/data/data.json').then(r => r.json())
+  ])
+  .then(([poolData, nameData]) => {
+    allPools = poolData.map((p, index) => {
+      // 새로운 데이터셋에서 매칭되는 이름 가져오기
+      const rawName = (nameData[index] && nameData[index].name) 
+                      ? nameData[index].name 
+                      : (p['시설명(이름)'] || '').trim();
 
+      // 기본 지역 정보 설정
+      let sido    = (p['시도']    || '').trim();
+      let sigungu = (p['시군구'] || '').trim();
 
+      // [데이터 보정] 인천환경공단 송도스포츠파크 위치 수정
+      if (rawName.includes('인천환경공단 송도스포츠파크')) {
+        sido = '인천광역시';
+        sigungu = '연수구';
+      }
 
-/* ================================================
-   전역 상태
-================================================ */
-var map, iw;
-var markers=[], mMap={};
-var matched=[], fil='all', selId=null;
-
-/* ================================================
-   localStorage 좌표 캐시
-================================================ */
-var NS='npool2_';
-function ck(p){return NS+p.sido+'_'+p.sg+'_'+p.name;}
-function getC(p){try{var v=localStorage.getItem(ck(p));return v?JSON.parse(v):null;}catch(e){return null;}}
-function setC(p,lat,lng){try{localStorage.setItem(ck(p),JSON.stringify({lat:lat,lng:lng}));}catch(e){}}
-
-/* ================================================
-   geocode 쿼리
-   - 주소 대신 정제된 시설명 + 시도 + 시군구 (지오코더 노이즈·오매칭 감소)
-================================================ */
-function geocodeNamePart(p){
-  var c=p.name||'';
-  c=c.replace(/\[[^\]]*\]/g,' ');       /* [복합] 등 대괄호 안 제거 */
-  c=c.replace(/\([^)]*\)/g,' ');        /* (주) 등 소괄호 안 제거 */
-  c=c.replace(/[^\w가-힣\s]/g,' ');     /* 특수문자 제거 */
-  c=c.replace(/\s+/g,' ').trim();
-  return c;
-}
-function mkQ(p){
-  var nm=geocodeNamePart(p);
-  var sido=p.sido||'';
-  var sg=p.sg||'';
-  /* 예: "강남구민체육센터 서울특별시 강남구" */
-  return (nm+' '+sido+' '+sg).replace(/\s+/g,' ').trim();
-}
-/* fallback: 정제로 이름이 비었을 때 원문 이름 + 지역 */
-function mkQname(p){
-  var c=geocodeNamePart(p);
-  if(!c)c=(p.name||'').replace(/\s+/g,' ').trim();
-  var sido=p.sido||'';
-  var sg=p.sg||'';
-  return (c+' '+sido+' '+sg).replace(/\s+/g,' ').trim();
-}
-
-/* ================================================
-   순차 geocode 큐
-================================================ */
-var Q=[], gTimer=null, gDone=0, gTotal=0;
-function startQ(pools){
-  clearQ();
-  Q=pools.slice(); gTotal=pools.length; gDone=0;
-  showBar(0,gTotal); nextQ();
-}
-function clearQ(){
-  if(gTimer){clearTimeout(gTimer);gTimer=null;}
-  Q=[]; gTotal=0; gDone=0; hideBar();
-}
-function nextQ(){
-  if(!Q.length){hideBar();return;}
-  if(!map){gTimer=setTimeout(nextQ,200);return;}
-  var p=Q.shift();
-  var c=getC(p);
-  if(c){
-    mkMark(p,c.lat,c.lng); gDone++;
-    updateBar(gDone,gTotal); updBtn(p.id,true);
-    gTimer=setTimeout(nextQ,0); return;
-  }
-  naver.maps.Service.geocode({query:mkQ(p)},function(st,res){
-    gDone++; updateBar(gDone,gTotal);
-    if(st===naver.maps.Service.Status.OK && res.v2 && res.v2.addresses && res.v2.addresses.length){
-      var a=res.v2.addresses[0];
-      var lat=parseFloat(a.y), lng=parseFloat(a.x);
-      setC(p,lat,lng); mkMark(p,lat,lng); updBtn(p.id,true);
-    } else {
-      // fallback: 이름으로 재시도
-      naver.maps.Service.geocode({query:mkQname(p)},function(s2,r2){
-        if(s2===naver.maps.Service.Status.OK && r2.v2 && r2.v2.addresses && r2.v2.addresses.length){
-          var a2=r2.v2.addresses[0];
-          setC(p,parseFloat(a2.y),parseFloat(a2.x));
-          mkMark(p,parseFloat(a2.y),parseFloat(a2.x)); updBtn(p.id,true);
-        }
-      });
-    }
-    gTimer=setTimeout(nextQ,220);
-  });
-}
-
-/* ================================================
-   마커 생성
-   공식 문서(마커): HTML 아이콘은 anchor를 요소 중앙 하단에 설정
-   공식 문서(정보창): 클릭 시 iw.open(map, LatLng) — 마커 객체 대신
-     위치(LatLng)를 직접 전달하면 HTML 아이콘의 앵커 계산 오류를 피함
-================================================ */
-function mkMark(p,lat,lng){
-  if(!map||mMap[p.id]) return;
-  var pos=new naver.maps.LatLng(lat,lng);
-  var isI=(p.indoor==='실내'||p.indoor==='실내외');
-  /* 공식 문서(마커-HTML 아이콘 예제):
-     anchor 는 content 요소 내 지리 좌표가 대응하는 픽셀 위치.
-     pill 높이 약 30px → anchor.y=30 으로 하단 중앙에 좌표 대응 */
-  var marker=new naver.maps.Marker({
-    position:pos, map:map, title:p.name,
-    icon:{
-      content:'<div class="pin '+(isI?'pin-i':'pin-o')+'">'+p.name+'</div>',
-      anchor:new naver.maps.Point(0,30)
-    }
-  });
-  mMap[p.id]={marker:marker,lat:lat,lng:lng};
-  markers.push(marker);
-  /* 공식 문서(이벤트): naver.maps.Event.addListener
-     iw.open 에 marker 대신 LatLng(pos)를 전달 */
-  naver.maps.Event.addListener(marker,'click',function(){
-    selId=p.id; renderCards(); openIW(p,pos);
-    var el=document.querySelector('[data-id="'+p.id+'"]');
-    if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
-  });
-}
-
-/* ================================================
-   검색
-================================================ */
-function qs(q){document.getElementById('si').value=q;doSearch();}
-function doSearch(){
-  if(!POOLS_READY){
-    alert('시설 목록을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
-    return;
-  }
-  var q=document.getElementById('si').value.trim();
-  if(!q)return;
-  showLoad(); clearQ(); clearMarkers(); selId=null;
-  setTimeout(function(){
-    function matchPri(p){
-      if(p.name.indexOf(q)!==-1)return 0;
-      if(p.sg.indexOf(q)!==-1)return 1;
-      if(p.sido.indexOf(q)!==-1)return 2;
-      if(p.addr.indexOf(q)!==-1)return 3;
-      return 9;
-    }
-    matched=POOLS.filter(function(p){
-      return p.name.includes(q)||p.sido.includes(q)||p.sg.includes(q)||p.addr.includes(q);
-    }).sort(function(a,b){
-      var d=matchPri(a)-matchPri(b);
-      if(d!==0)return d;
-      return a.name.localeCompare(b.name,'ko');
+      return {
+        ...p,
+        _sido:    sido,
+        _sigungu: sigungu,
+        _name:    rawName,
+        _address: (p['주소'] || '').trim(),
+        _type:    (p[' 실내외\n구분 '] || '').trim(),
+        _lanes:   (p['레인\n수'] || '').toString().trim(),
+        _length:  (p['길이']    || '').toString().trim(),
+        _width:   (p['폭']      || '').toString().trim(),
+        _year:    (p['준공\n연도'] || '').toString().trim(),
+      };
     });
-    renderCards();
-    if(!matched.length)return;
-    var fl=getFiltered();
-    startQ(fl);
-    // 첫 시설로 지도 이동
-    var f=fl[0]; if(!f)return;
-    var c=getC(f);
-    if(c){map.setCenter(new naver.maps.LatLng(c.lat,c.lng));map.setZoom(12);}
-    else{
-      naver.maps.Service.geocode({query:mkQ(f)},function(s,r){
-        if(s===naver.maps.Service.Status.OK&&r.v2&&r.v2.addresses&&r.v2.addresses.length){
-          var a=r.v2.addresses[0];
-          map.setCenter(new naver.maps.LatLng(parseFloat(a.y),parseFloat(a.x)));
-          map.setZoom(12);
-        }
-      });
+    buildFilters();
+    applyFilters();
+  })
+  .catch(() => {
+    document.getElementById('mainContent').innerHTML = `
+      <div class="state-msg"><h3>⚠️ 데이터를 불러오지 못했습니다.</h3></div>`;
+  });
+
+  function buildFilters() {
+    const sidoSet = [...new Set(allPools.map(p => p._sido).filter(Boolean))].sort();
+    const sidoSel = document.getElementById('sidoFilter');
+    sidoSet.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s; o.textContent = s; sidoSel.appendChild(o);
+    });
+  }
+
+  function onSidoChange() {
+    const sido = document.getElementById('sidoFilter').value;
+    const sg   = document.getElementById('sigunguFilter');
+    sg.innerHTML = '<option value="">전체 시군구</option>';
+    if (sido) {
+      [...new Set(allPools.filter(p => p._sido === sido).map(p => p._sigungu).filter(Boolean))].sort()
+        .forEach(d => {
+          const o = document.createElement('option');
+          o.value = d; o.textContent = d; sg.appendChild(o);
+        });
     }
-  },100);
-}
-
-/* ================================================
-   필터
-================================================ */
-function getFiltered(){
-  return matched.filter(function(p){
-    if(fil==='indoor') return p.indoor==='실내';
-    if(fil==='outdoor') return p.indoor!=='실내';
-    if(fil==='lanes') return p.lanes&&p.lanes!==''&&p.lanes!=='-'&&p.lanes!=='0';
-    if(fil==='50m') return p.length==='50';
-    return true;
-  });
-}
-function clearMarkers(){markers.forEach(function(m){m.setMap(null);});markers=[];mMap={};}
-
-/* ================================================
-   카드 렌더링
-================================================ */
-function renderCards(){
-  var fl=getFiltered();
-  var riEl=document.getElementById('ri');
-  var list=document.getElementById('cardList');
-  var eb=document.getElementById('emptyBox');
-  if(!matched.length){
-    list.innerHTML='';riEl.style.display='none';
-    eb.innerHTML='<div class="ei">😔</div><div class="et">검색 결과 없음</div>';
-    eb.style.display='flex';return;
-  }
-  eb.style.display='none';
-  riEl.style.display='block';
-  riEl.innerHTML='총 <strong>'+fl.length+'개</strong> 시설';
-  list.innerHTML=fl.map(function(p){
-    var reg=p.sido+(p.sg?' '+p.sg:'');
-    var lane=(p.lanes&&p.lanes!=='0'&&p.lanes!=='-')?p.lanes+'레인':'';
-    var size=(p.length&&p.width)?p.length+'m × '+p.width+'m':'';
-    var sel=selId===p.id?' sel':'';
-    var det=selId===p.id?' open':'';
-    var hasMark=!!mMap[p.id];
-    return '<div class="card'+sel+'" data-id="'+p.id+'" onclick="selCard('+p.id+')">'+
-      '<div class="ct"><div class="cn">'+p.name+'</div><div class="crg">'+reg+'</div></div>'+
-      (p.addr?'<div class="ca">'+p.addr+'</div>':'')+
-      '<div class="tags">'+
-        '<span class="tag '+(p.indoor==='실내'?'t-i':'t-o')+'">'+p.indoor+'</span>'+
-        (lane?'<span class="tag t-l">'+lane+'</span>':'')+
-        (size?'<span class="tag t-s">'+size+(p.length==='50'?' ⭐':'')+'</span>':'')+
-      '</div>'+
-      '<div class="detail'+det+'">'+
-        '<div class="dg">'+
-          '<div class="di"><div class="dl">레인</div><div class="dv">'+(lane||'정보없음')+'</div></div>'+
-          '<div class="di"><div class="dl">규모</div><div class="dv">'+(size||'정보없음')+'</div></div>'+
-          '<div class="di"><div class="dl">준공연도</div><div class="dv">'+(p.year||'정보없음')+'</div></div>'+
-          '<div class="di"><div class="dl">실내외</div><div class="dv">'+p.indoor+'</div></div>'+
-        '</div>'+
-        '<div class="ar">'+
-          '<button class="abtn bm'+(hasMark?' done':'')+'" data-mb="'+p.id+'" '+
-            'onclick="event.stopPropagation();showOnMap('+p.id+')">'+(hasMark?'📍 위치 보기':'🗺️ 지도 보기')+'</button>'+
-          (p.tel?'<a class="abtn bt" href="tel:'+p.tel.replace(/[^0-9\-]/g,'')+'">📞 전화</a>':'')+
-          (p.hp&&p.hp.length>4?'<a class="abtn bw" href="'+(p.hp.startsWith('http')?p.hp:'https://'+p.hp)+'" target="_blank">🌐 홈페이지</a>':'')+
-        '</div>'+
-      '</div>'+
-    '</div>';
-  }).join('');
-}
-
-function selCard(id){
-  selId=selId===id?null:id;
-  renderCards();
-  if(selId===null&&iw)iw.close();
-  else setTimeout(function(){
-    var el=document.querySelector('[data-id="'+id+'"]');
-    if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
-  },50);
-}
-
-/* ================================================
-   지도 보기 버튼
-   공식 문서: geocode → setCenter + setZoom + infoWindow
-================================================ */
-function showOnMap(id){
-  if(!map){alert('지도가 준비 중입니다. 잠시 후 다시 눌러주세요.');return;}
-  var p=null;
-  for(var i=0;i<POOLS.length;i++){if(POOLS[i].id===id){p=POOLS[i];break;}}
-  if(!p)return;
-
-  /* ① 마커 이미 있음 → 즉시 이동 */
-  if(mMap[id]){
-    gotoMap(p,mMap[id].lat,mMap[id].lng,mMap[id].marker);
-    return;
+    applyFilters();
   }
 
-  /* ② 캐시 좌표 있음 */
-  var cached=getC(p);
-  if(cached){
-    mkMark(p,cached.lat,cached.lng);
-    gotoMap(p,cached.lat,cached.lng,mMap[id].marker);
-    updBtn(id,true);
-    return;
+  function setTypeFilter(t) {
+    typeFilter = t;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    document.getElementById({ all:'chipAll', indoor:'chipIndoor', outdoor:'chipOutdoor' }[t]).classList.add('active');
+    applyFilters();
   }
 
-  /* ③ geocode API 호출 (정제 시설명 + 시도·구군) */
-  setBtn(id,'⌛ 검색 중...');
-  geocodePool(p,mkQ(p),function(ok){
-    if(!ok){
-      /* fallback: 이름으로 재시도 */
-      geocodePool(p,mkQname(p),function(ok2){
-        if(!ok2)setBtn(id,'❌ 위치 없음');
-      });
+  function applyFilters() {
+    const query   = document.getElementById('searchInput').value.toLowerCase().trim();
+    const sido    = document.getElementById('sidoFilter').value;
+    const sigungu = document.getElementById('sigunguFilter').value;
+
+    const results = allPools.filter(p => {
+      if (sido    && p._sido    !== sido)    return false;
+      if (sigungu && p._sigungu !== sigungu) return false;
+      if (typeFilter === 'indoor'  && !p._type.includes('실내')) return false;
+      if (typeFilter === 'outdoor' && !p._type.includes('실외')) return false;
+      if (query) {
+        const hay = [p._sido, p._sigungu, p._name, p._address].join(' ').toLowerCase();
+        return hay.includes(query);
+      }
+      return true;
+    });
+    renderResults(results);
+  }
+
+  function naverLink(pool) {
+    const q = encodeURIComponent([pool._sido, pool._sigungu, pool._name].filter(Boolean).join(' '));
+    return `https://map.naver.com/v5/search/${q}`;
+  }
+
+  function isBlank(s) { return !s || ['.', '-', '0', ''].includes(s.trim()); }
+
+  function renderResults(pools) {
+    document.getElementById('resultCount').innerHTML = `검색 결과 <strong>${pools.length.toLocaleString()}</strong>개의 수영장`;
+    const container = document.getElementById('mainContent');
+    if (pools.length === 0) {
+      container.innerHTML = `<div class="state-msg"><h3>🔍 검색 결과가 없습니다.</h3></div>`;
+      return;
     }
-  });
-}
 
-/* geocode 공통 함수 (공식 문서 패턴) */
-function geocodePool(p,query,cb){
-  naver.maps.Service.geocode({query:query},function(status,response){
-    /* 공식 문서: status === naver.maps.Service.Status.OK */
-    if(status!==naver.maps.Service.Status.OK){cb(false);return;}
-    var addrs=response.v2&&response.v2.addresses;
-    if(!addrs||!addrs.length){cb(false);return;}
-    /* 공식 문서: addresses[0].x = 경도, .y = 위도 */
-    var lat=parseFloat(addrs[0].y), lng=parseFloat(addrs[0].x);
-    setC(p,lat,lng);
-    mkMark(p,lat,lng);
-    updBtn(p.id,true);
-    gotoMap(p,lat,lng,mMap[p.id]?mMap[p.id].marker:null);
-    cb(true);
-  });
-}
+    const grid = document.createElement('div');
+    grid.className = 'grid-container';
+    pools.forEach(p => {
+      const isIndoor = p._type.includes('실내');
+      let specs = '';
+      if (!isBlank(p._length)) specs += `<span class="spec-pill"><strong>${p._length}</strong>m</span>`;
+      if (!isBlank(p._lanes))  specs += `<span class="spec-pill"><strong>${p._lanes}</strong>레인</span>`;
 
-/* 지도 이동 + 정보창
-   공식 문서(지도): map.setCenter(LatLng) + map.setZoom(n)
-   공식 문서(정보창): openIW 에 LatLng 전달 */
-function gotoMap(p,lat,lng,marker){
-  var pos=new naver.maps.LatLng(lat,lng);
-  map.setCenter(pos);
-  map.setZoom(16);
-  openIW(p,pos);
-}
-
-/* ================================================
-   정보창
-   공식 문서(정보창-기본 예제):
-     1) iw.setContent(htmlString) 로 내용 설정
-     2) iw.getMap() 로 이미 열려있는지 확인 후 close()
-     3) iw.open(map, position) — position 에 LatLng 를 전달하면
-        HTML 아이콘 마커의 anchor 값에 무관하게 좌표에 정확히 표시됨
-================================================ */
-function openIW(p,position){
-  if(!iw||!map)return;
-  var lane=(p.lanes&&p.lanes!=='0'&&p.lanes!=='-')?p.lanes+'레인':'';
-  var size=(p.length&&p.width)?p.length+'m × '+p.width+'m':'';
-  var ic=p.indoor==='실내'?'#6D28D9':'#0369A1';
-  var ibg=p.indoor==='실내'?'#EDE9FE':'#E0F9FF';
-  /* 공식 문서: setContent */
-  iw.setContent(
-    '<div style="padding:11px 14px;font-family:Noto Sans KR,sans-serif;min-width:170px;max-width:230px;line-height:1.4">'+
-    '<div style="font-weight:700;font-size:13px;margin-bottom:3px">'+p.name+'</div>'+
-    '<div style="font-size:11px;color:#6B7280;margin-bottom:7px">'+p.sido+' '+p.sg+(p.addr?' · '+p.addr:'')+'</div>'+
-    '<div style="display:flex;gap:4px;flex-wrap:wrap">'+
-      '<span style="font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:'+ibg+';color:'+ic+'">'+p.indoor+'</span>'+
-      (lane?'<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:#F1F5F9;color:#475569">'+lane+'</span>':'')+
-      (size?'<span style="font-size:11px;padding:2px 7px;border-radius:4px;background:#FEF3C7;color:#92400E">'+size+'</span>':'')+
-    '</div>'+
-    '</div>'
-  );
-  /* 공식 문서: 이미 열려 있으면 close() 후 재open */
-  if(iw.getMap()) iw.close();
-  /* 공식 문서: open(map, position) — LatLng 전달로 정확한 좌표에 표시 */
-  iw.open(map, position);
-}
-
-/* ================================================
-   헬퍼
-================================================ */
-function updBtn(id,done){
-  var b=document.querySelector('[data-mb="'+id+'"]');
-  if(!b)return;
-  if(done){b.classList.add('done');b.textContent='📍 위치 보기';}
-}
-function setBtn(id,txt){
-  var b=document.querySelector('[data-mb="'+id+'"]');
-  if(b)b.textContent=txt;
-}
-function showLoad(){
-  document.getElementById('emptyBox').style.display='flex';
-  document.getElementById('emptyBox').innerHTML='<div class="spin"></div><div class="et" style="margin-top:7px">검색 중...</div>';
-  document.getElementById('ri').style.display='none';
-  document.getElementById('cardList').innerHTML='';
-}
-function showBar(d,t){document.getElementById('gbar').style.opacity='1';updateBar(d,t);}
-function updateBar(d,t){if(!t)return;document.getElementById('gprog').style.width=Math.round(d/t*100)+'%';}
-function hideBar(){document.getElementById('gbar').style.opacity='0';}
-
-document.getElementById('si').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch();});
-document.querySelectorAll('.ch').forEach(function(b){
-  b.addEventListener('click',function(){
-    document.querySelectorAll('.ch').forEach(function(x){x.classList.remove('on');});
-    this.classList.add('on'); fil=this.dataset.f;
-    clearMarkers(); renderCards();
-    if(matched.length)startQ(getFiltered());
-  });
-});
-
-/* ================================================
-   ④ 앱 시작 (공식 문서: SDK 로드 후 직접 초기화)
-   - SDK는 위 <head>에서 동기 로드됐으므로
-     naver 객체가 이미 사용 가능
-================================================ */
-/* 공식 문서(Hello World): SDK 동기 로드 후 즉시 초기화 */
-map = new naver.maps.Map('map', {
-  center: new naver.maps.LatLng(36.5, 127.5),
-  zoom: 7
-});
-
-/* 공식 문서(정보창): anchorSkew 제거 — HTML 아이콘 마커와 함께 쓸 때
-   iw.open(map, LatLng) 패턴을 쓰므로 앵커 스큐 불필요 */
-iw = new naver.maps.InfoWindow({
-  borderWidth: 1,
-  borderColor: '#dde3ec',
-  anchorSize: new naver.maps.Size(12, 14),
-  anchorColor: '#fff',
-  pixelOffset: new naver.maps.Point(0, -8),
-  backgroundColor: '#fff'
-});
-
+      const card = document.createElement('a');
+      card.className = `pool-card ${isIndoor ? 'indoor' : 'outdoor'}`;
+      card.href = naverLink(p); card.target = '_blank';
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="card-name">${p._name}</div>
+          <span class="badge ${isIndoor ? 'badge-indoor' : 'badge-outdoor'}">${isIndoor ? '실내' : '실외'}</span>
+        </div>
+        <div class="card-district">📍 ${p._sido} ${p._sigungu}</div>
+        <div class="card-address">${p._address}</div>
+        ${specs ? `<div class="card-specs">${specs}</div>` : ''}
+        <div class="naver-btn">지도 보기 →</div>`;
+      grid.appendChild(card);
+    });
+    container.innerHTML = '';
+    container.appendChild(grid);
+  }
 </script>
 </body>
 </html>
