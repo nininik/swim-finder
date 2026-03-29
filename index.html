@@ -247,30 +247,30 @@ function setC(p,lat,lng){try{localStorage.setItem(ck(p),JSON.stringify({lat:lat,
 
 /* ================================================
    geocode 쿼리
-   - JSON 기준 우선순위: 시설명(name) → 시도·구군 → 주소(보조)
+   - 주소 대신 정제된 시설명 + 시도 + 시군구 (지오코더 노이즈·오매칭 감소)
 ================================================ */
 function geocodeNamePart(p){
-  var c=p.name;
-  c=c.replace(/\([^)]*수영장[^)]*\)/g,'');
-  c=c.replace(/수영장/g,'');
-  c=c.replace(/\([^)]*\)/g,'');
-  c=c.replace(/[/\\]/g,' ');
+  var c=p.name||'';
+  c=c.replace(/\[[^\]]*\]/g,' ');       /* [복합] 등 대괄호 안 제거 */
+  c=c.replace(/\([^)]*\)/g,' ');        /* (주) 등 소괄호 안 제거 */
+  c=c.replace(/[^\w가-힣\s]/g,' ');     /* 특수문자 제거 */
   c=c.replace(/\s+/g,' ').trim();
   return c;
 }
 function mkQ(p){
   var nm=geocodeNamePart(p);
-  var base=(nm?nm+' ':'')+p.sido+' '+p.sg;
-  if(p.addr && p.addr.trim().length > 2){
-    return base+' '+p.addr.trim();
-  }
-  return base.replace(/\s+/g,' ').trim();
+  var sido=p.sido||'';
+  var sg=p.sg||'';
+  /* 예: "강남구민체육센터 서울특별시 강남구" */
+  return (nm+' '+sido+' '+sg).replace(/\s+/g,' ').trim();
 }
-/* fallback용: 이름만으로 검색 */
+/* fallback: 정제로 이름이 비었을 때 원문 이름 + 지역 */
 function mkQname(p){
   var c=geocodeNamePart(p);
-  if(!c)c=p.name.replace(/\s+/g,' ').trim();
-  return c+' '+p.sido+' '+p.sg;
+  if(!c)c=(p.name||'').replace(/\s+/g,' ').trim();
+  var sido=p.sido||'';
+  var sg=p.sg||'';
+  return (c+' '+sido+' '+sg).replace(/\s+/g,' ').trim();
 }
 
 /* ================================================
@@ -485,7 +485,7 @@ function showOnMap(id){
     return;
   }
 
-  /* ③ geocode API 호출 (주소 or 시설명 + 지역) */
+  /* ③ geocode API 호출 (정제 시설명 + 시도·구군) */
   setBtn(id,'⌛ 검색 중...');
   geocodePool(p,mkQ(p),function(ok){
     if(!ok){
