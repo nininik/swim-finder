@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- ✅ 보안 1: CSP — 허용된 출처만 리소스 로드 허용 -->
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'unsafe-inline';
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+           font-src https://fonts.gstatic.com;
+           connect-src https://nininik.github.io;
+           img-src 'self' data:;">
+
 <title>공영수영장 찾기</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 <style>
@@ -135,23 +145,61 @@
   let allPools = [];
   let typeFilter = 'all';
 
-  // 1. 데이터 로드 및 병합 로직
+  // ✅ 보안 2: XSS 방지 — 모든 외부 문자열은 이 함수를 통해 삽입
+  function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str ?? '';
+    return div.innerHTML;
+  }
+
+  // ✅ 보안 3: 안전한 fetch — 응답 상태, Content-Type, 크기 검증
+  async function safeFetch(url) {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!res.ok) throw new Error(`HTTP 오류: ${res.status}`);
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error('예상치 못한 응답 형식입니다.');
+    }
+
+    const text = await res.text();
+    if (text.length > 5_000_000) { // 5MB 초과 차단
+      throw new Error('응답 데이터가 너무 큽니다.');
+    }
+
+    return JSON.parse(text);
+  }
+
+  // ✅ 보안 4: 네이버 지도 URL — 길이 제한 + 허용 도메인 고정
+  function naverLink(pool) {
+    const ALLOWED_BASE = 'https://map.naver.com/v5/search/';
+    const q = encodeURIComponent(
+      [pool._sido, pool._sigungu, pool._name]
+        .filter(Boolean)
+        .map(s => String(s).slice(0, 50)) // 필드당 50자 제한
+        .join(' ')
+    );
+    return ALLOWED_BASE + q;
+  }
+
+  // 데이터 로드
   Promise.all([
-    fetch('https://nininik.github.io/swim-finder/data/pools.json').then(r => r.json()),
-    fetch('https://nininik.github.io/test/data/data.json').then(r => r.json())
+    safeFetch('https://nininik.github.io/swim-finder/data/pools.json'),
+    safeFetch('https://nininik.github.io/test/data/data.json')
   ])
   .then(([poolData, nameData]) => {
     allPools = poolData.map((p, index) => {
-      // 새로운 데이터셋에서 매칭되는 이름 가져오기
-      const rawName = (nameData[index] && nameData[index].name) 
-                      ? nameData[index].name 
+      const rawName = (nameData[index] && nameData[index].name)
+                      ? nameData[index].name
                       : (p['시설명(이름)'] || '').trim();
 
-      // 기본 지역 정보 설정
       let sido    = (p['시도']    || '').trim();
       let sigungu = (p['시군구'] || '').trim();
 
-      // [데이터 보정] 인천환경공단 송도스포츠파크 위치 수정
       if (rawName.includes('인천환경공단 송도스포츠파크')) {
         sido = '인천광역시';
         sigungu = '연수구';
@@ -173,9 +221,10 @@
     buildFilters();
     applyFilters();
   })
-  .catch(() => {
-    document.getElementById('mainContent').innerHTML = `
-      <div class="state-msg"><h3>⚠️ 데이터를 불러오지 못했습니다.</h3></div>`;
+  .catch(err => {
+    console.error('[데이터 로드 오류]', err);
+    document.getElementById('mainContent').innerHTML =
+      `<div class="state-msg"><h3>⚠️ 데이터를 불러오지 못했습니다.</h3><p>${escapeHTML(err.message)}</p></div>`;
   });
 
   function buildFilters() {
@@ -227,15 +276,12 @@
     renderResults(results);
   }
 
-  function naverLink(pool) {
-    const q = encodeURIComponent([pool._sido, pool._sigungu, pool._name].filter(Boolean).join(' '));
-    return `https://map.naver.com/v5/search/${q}`;
-  }
-
   function isBlank(s) { return !s || ['.', '-', '0', ''].includes(s.trim()); }
 
   function renderResults(pools) {
-    document.getElementById('resultCount').innerHTML = `검색 결과 <strong>${pools.length.toLocaleString()}</strong>개의 수영장`;
+    document.getElementById('resultCount').innerHTML =
+      `검색 결과 <strong>${pools.length.toLocaleString()}</strong>개의 수영장`;
+
     const container = document.getElementById('mainContent');
     if (pools.length === 0) {
       container.innerHTML = `<div class="state-msg"><h3>🔍 검색 결과가 없습니다.</h3></div>`;
@@ -244,26 +290,35 @@
 
     const grid = document.createElement('div');
     grid.className = 'grid-container';
+
     pools.forEach(p => {
       const isIndoor = p._type.includes('실내');
+
+      // ✅ 보안 2 적용: 스펙 pill — escapeHTML로 안전하게 삽입
       let specs = '';
-      if (!isBlank(p._length)) specs += `<span class="spec-pill"><strong>${p._length}</strong>m</span>`;
-      if (!isBlank(p._lanes))  specs += `<span class="spec-pill"><strong>${p._lanes}</strong>레인</span>`;
+      if (!isBlank(p._length)) specs += `<span class="spec-pill"><strong>${escapeHTML(p._length)}</strong>m</span>`;
+      if (!isBlank(p._lanes))  specs += `<span class="spec-pill"><strong>${escapeHTML(p._lanes)}</strong>레인</span>`;
 
       const card = document.createElement('a');
       card.className = `pool-card ${isIndoor ? 'indoor' : 'outdoor'}`;
-      card.href = naverLink(p); card.target = '_blank';
+      card.href = naverLink(p);
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer'; // ✅ 보안 5: Tabnapping 방지
+
+      // ✅ 보안 2 적용: 카드 내용 전체 escapeHTML 처리
       card.innerHTML = `
         <div class="card-top">
-          <div class="card-name">${p._name}</div>
+          <div class="card-name">${escapeHTML(p._name)}</div>
           <span class="badge ${isIndoor ? 'badge-indoor' : 'badge-outdoor'}">${isIndoor ? '실내' : '실외'}</span>
         </div>
-        <div class="card-district">📍 ${p._sido} ${p._sigungu}</div>
-        <div class="card-address">${p._address}</div>
+        <div class="card-district">📍 ${escapeHTML(p._sido)} ${escapeHTML(p._sigungu)}</div>
+        <div class="card-address">${escapeHTML(p._address)}</div>
         ${specs ? `<div class="card-specs">${specs}</div>` : ''}
         <div class="naver-btn">지도 보기 →</div>`;
+
       grid.appendChild(card);
     });
+
     container.innerHTML = '';
     container.appendChild(grid);
   }
